@@ -1,2 +1,3 @@
 # pulse
-SEQ Transit Pulse data to understand delays. 
+
+SEQ Transit Pulse analyses data to understand delays.   
