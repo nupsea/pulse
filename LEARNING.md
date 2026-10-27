@@ -24,3 +24,10 @@ Read data from VehiclePositions.1 for initial data comprehension.
 > Found no missing data. All fields look populated at least with the ones I imported.
 > Avg gap time between vechicle timestamp and header timestamp looks to be around 20 sec.. with few outliers like ~3000 sec
 
+### Step 3
+
+parse.py read the contents from the DATA/raw/sample.pb file and flattens it into a list of entities, where entity is a dict. 
+I didn't find any missing data. Not sure how it needs to be handled for proper analysis as of now.
+
+ 
+

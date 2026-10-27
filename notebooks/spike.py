@@ -28,7 +28,6 @@ def _(mo, pl):
     trip_path = "/Users/sethurama/DEV/LM/pulse/DATA/SAMPLE/static/trips.txt"
     trip_data = pl.read_csv(trip_path, separator=',')
     mo.sql("SELECT * FROM trip_data")
-
     return trip_data, trip_path
 
 
@@ -54,6 +53,7 @@ def _(duckdb):
 def _(conn, mo, trip_path):
     _df = mo.sql(
         f"""
+        DROP TABLE pulse.my_trip_data;
         CREATE TABLE pulse.my_trip_data AS 
             SELECT * FROM read_csv('{trip_path}', delim=',', header=true);
         """,
@@ -130,7 +130,142 @@ def _(feed):
 
 
 @app.cell
-def _():
+def _(conn, mo):
+    _df = mo.sql(
+        f"""
+        DROP TABLE IF EXISTS trips ;
+        CREATE TABLE trips AS 
+            SELECT * FROM read_csv('DATA/gtfs/trips.txt', all_varchar = true);
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(conn, mo, trips):
+    _df = mo.sql(
+        f"""
+        DESCRIBE trips;
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(conn, mo):
+    _df = mo.sql(
+        f"""
+        DROP TABLE IF EXISTS routes;
+        CREATE TABLE routes AS 
+            SELECT * FROM read_csv('DATA/gtfs/routes.txt', all_varchar = true);
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(conn, mo):
+    _df = mo.sql(
+        f"""
+        DROP TABLE IF EXISTS stop_times;
+        CREATE TABLE stop_times AS 
+            SELECT * FROM read_csv('DATA/gtfs/stop_times.txt', all_varchar = true);
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell
+def _(conn, mo, trips):
+    _df = mo.sql(
+        f"""
+        SELECT * FROM trips LIMIT 5;
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell
+def _(conn, mo, routes):
+    _df = mo.sql(
+        f"""
+        SELECT * FROM routes LIMIT 5;
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Determine number of Trips per Route type.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(conn, mo):
+    _df = mo.sql(
+        f"""
+        DROP TABLE IF EXISTS route_types;
+        CREATE TABLE route_types (route_type_id VARCHAR, route_type_name VARCHAR);
+
+        INSERT INTO route_types VALUES 
+        (0, 'tram'), 
+        (2, 'rail'), 
+        (3, 'bus'), 
+        (4, 'ferry');
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell
+def _(conn, mo, route_types, routes, trips):
+    _df = mo.sql(
+        f"""
+        SELECT route_type_name, COUNT(trip_id) as route_count
+        FROM routes 
+            INNER JOIN trips ON routes.route_id = trips.route_id 
+        	INNER JOIN route_types ON routes.route_type = route_types.route_type_id
+        GROUP BY route_type_name
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Step 6
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(conn, mo, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        SELECT count(*), count(DISTINCT fetch_ts) FROM vehicle_positions
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+ 
+    """)
     return
 
 
