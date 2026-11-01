@@ -269,5 +269,220 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    > **Volume**: how many vehicles per poll, and how does that split by mode?
+    >
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(conn, mo, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        SELECT * FROM vehicle_positions LIMIT 5;
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell
+def _(conn, mo, route_types, routes, trips, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        SELECT fetch_ts, route_type_name, COUNT(trips.trip_id) 
+        FROM vehicle_positions
+        INNER JOIN trips 
+            ON vehicle_positions.trip_id = trips.trip_id
+        INNER JOIN routes 
+            ON routes.route_id = trips.route_id
+        INNER JOIN route_types
+            ON routes.route_type = route_types.route_type_id
+        GROUP BY fetch_ts, route_type_name
+        ORDER BY fetch_ts
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    > **Freshness**: how often does the feed really change?
+
+    Count distinct feed_ts vs number of polls. Then look at how often a single vehicle's vehicle_ts changes.
+    """)
+    return
+
+
+@app.cell
+def _(conn, mo, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        SELECT COUNT(DISTINCT fetch_ts) as distinct_feeds, COUNT(fetch_ts) as num_polls
+            FROM vehicle_positions;
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell
+def _(conn, mo, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        SELECT vehicle_id, COUNT(*) as cnt 
+            FROM vehicle_positions
+        WHERE fetch_ts = '1793077479' 
+        GROUP BY vehicle_id
+        HAVING COUNT(*) = 1
+        ORDER BY vehicle_id;
+            -- AND vehicle_id = '73DD7B678B530932DF783319BBF95E95_1007'
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell
+def _(conn, mo, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        -- How frequently vehicle_ts changes.
+
+        SELECT fetch_ts, COUNT(DISTINCT vehicle_ts) as cnt 
+        FROM vehicle_positions
+        GROUP BY fetch_ts
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    > **Lag:**  how old is a position when you receive it?
+
+    fetch_ts − vehicle_ts, median and p95 (quantile_cont).
+    """)
+    return
+
+
+@app.cell
+def _(conn, mo, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        WITH computed_lag AS (
+            SELECT (fetch_ts::BIGINT - vehicle_ts::BIGINT) as diff 
+        	FROM vehicle_positions
+        )
+        SELECT MEDIAN(diff) as median_diff_secs, quantile_cont(diff, 0.95) as p95_lag_secs
+            FROM computed_lag
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    > **Duplicates:** how often do you see the same report twice?
+
+    Same (vehicle_id, vehicle_ts) in more than one poll, as a share of all rows.
+    """)
+    return
+
+
+@app.cell
+def _(conn, mo, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        WITH ranked_vps AS (
+            SELECT vehicle_id, ROW_NUMBER() OVER (
+                PARTITION BY (vehicle_id, vehicle_ts)
+                ORDER BY fetch_ts
+        	) as ranked 
+        FROM vehicle_positions
+        )
+        SELECT vehicle_id, ranked  
+        FROM ranked_vps
+        WHERE ranked > 1
+        ORDER BY ranked DESC
+
+
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell
+def _(conn, mo, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        WITH duped_vps AS (
+            SELECT vehicle_id, ROW_NUMBER() OVER (
+                PARTITION BY (vehicle_id, vehicle_ts)
+                ORDER BY fetch_ts
+        	) as duped 
+        FROM vehicle_positions
+        )
+        SELECT 
+            COUNT_IF (duped > 1) as duped_count, 
+            COUNT(*) AS total_count,
+            duped_count::DOUBLE/total_count * 100 as duped_percentage
+        FROM duped_vps
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    > **Join quality:** what share of realtime trip_ids exist in the timetable?
+
+    Distinct realtime trip_ids found in trips ÷ all distinct.
+    """)
+    return
+
+
+@app.cell
+def _(conn, mo, trips, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        WITH rt_trips AS (
+            SELECT DISTINCT trip_id
+            FROM vehicle_positions
+        )
+
+        SELECT 
+            COUNT(DISTINCT trips.trip_id) as shared_rt_trips, 
+            COUNT(rt_trips.trip_id) as all_distinct,
+            shared_rt_trips::DOUBLE/all_distinct * 100 AS shared_trip_percentage
+        FROM rt_trips
+        LEFT JOIN trips 
+        	ON rt_trips.trip_id = trips.trip_id
+
+    
+            	;
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell
+def _():
+    return
+
+
 if __name__ == "__main__":
     app.run()
