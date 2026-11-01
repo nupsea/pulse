@@ -29,5 +29,24 @@ Read data from VehiclePositions.1 for initial data comprehension.
 parse.py read the contents from the DATA/raw/sample.pb file and flattens it into a list of entities, where entity is a dict. 
 I didn't find any missing data. Not sure how it needs to be handled for proper analysis as of now.
 
+### Step 4
+
+Captured the count from couple of runs.. So it is almost double the expected.
+
+### Step 5
+
+Loaded the static timetable data into duckDB. Read it after joining trips with routes. Refer to spike.py.
+
+
+### Step 6
+
+Flattened the realtime poll data into parquet and then uploaded that into DuckDB
+
+
+### Step 7
+
+Tried writing each query myself. Got stuck at places and got some AI assistance for learning them. Probably would need more practice as I've lost touch. 
+
+
  
 
