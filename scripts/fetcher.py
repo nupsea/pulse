@@ -2,6 +2,7 @@
 from google.transit import gtfs_realtime_pb2 as pb2
 from datetime import datetime   
 
+import argparse
 import os
 import time
 import polars as pl 
@@ -15,7 +16,7 @@ FREQUENCY_SEC = 30  # in seconds
 DURATION_MIN = 30  # in minutes 
 
 URL = "https://gtfsrt.api.translink.com.au/api/realtime/SEQ/" 
-DATA = "VehiclePositions"
+DATA_GROUP = "TripUpdates"
 
 # TODO Lots of failure scenarios to be handled. 
 # TODO 1. Break it downn into smaller functionalities and use an orchestrator. 
@@ -29,18 +30,18 @@ DATA = "VehiclePositions"
 # TODO 9. How to handle the state. Use a message broker? 
 # TODO 10. How to handle backpressure? and ingest into DB. 
 
-def fetch_and_load(url: str) -> pb2.FeedMessage:
-    """Fetch the GTFS VechilePositions DATA from the url and return the feed message every FREQUENCY_SEC seconds for DURATION_MIN mins"""
+def fetch_and_load(url: str, data_group: str) -> pb2.FeedMessage:
+    """Fetch the GTFS realtime data from the url and load into DuckDB every FREQUENCY_SEC seconds for DURATION_MIN mins"""
 
     for _ in range(DURATION_MIN * 60 // FREQUENCY_SEC):
         now = datetime.now()
-        dir_path = Path(f"DATA/gtfs/{DATA}") / now.strftime("%Y%m%d")
+        dir_path = Path(f"DATA/gtfs/{data_group}") / now.strftime("%Y%m%d")
         dir_path.mkdir(parents=True, exist_ok=True)
         
         # download, parse using GTFSEntity and save to parquet file
-        file_path = dir_path / f"{DATA}_{now.strftime('%H%M%S')}.parquet"
+        file_path = dir_path / f"{data_group}_{now.strftime('%H%M%S')}.parquet"
 
-        content = GTFSEntity().read_from_url(URL + DATA)
+        content = GTFSEntity().read_from_url(url + data_group)
         flattened_content = GTFSEntity().flatten(content, fetch_ts=int(now.timestamp()))
 
         #write to parquet file
@@ -51,12 +52,21 @@ def fetch_and_load(url: str) -> pb2.FeedMessage:
         print(f"Saved: {file_path}")
 
         #upsert parquet to duckDB ? What if this becomes the bottleneck??
-        upsert_pq_to_db(file_path)
+        upsert_pq_to_db(file_path, data_group=data_group)
         
         time.sleep(FREQUENCY_SEC)
 
 def main():
-    fetch_and_load(URL + DATA)
+    parser = argparse.ArgumentParser(description="Fetch GTFS-RT data and load into DuckDB.")
+    parser.add_argument(
+        "data_group",
+        nargs="?",
+        default=DATA_GROUP,
+        choices=["VehiclePositions", "TripUpdates"],
+        help="GTFS-RT data group to fetch (default: TripUpdates)",
+    )
+    args = parser.parse_args()
+    fetch_and_load(URL, args.data_group)
 
 
 

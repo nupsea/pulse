@@ -44,6 +44,24 @@ class GTFSEntity:
                     'vehicle_ts': entity.vehicle.timestamp,
                     'fetch_ts': fetch_ts,
                 })
+            elif entity.HasField('trip_update'):
+                for stu in entity.trip_update.stop_time_update:
+                    flattened_data.append({
+                        'entity_id': entity.id,
+                        'trip_id': entity.trip_update.trip.trip_id,
+                        'route_id': entity.trip_update.trip.route_id,
+                        'start_date': entity.trip_update.trip.start_date,
+                        'vehicle_id': entity.trip_update.vehicle.id,
+                        'stop_sequence': stu.stop_sequence,
+                        'stop_id': stu.stop_id,
+                        'arrival_delay': stu.arrival.delay if stu.HasField('arrival') else None,
+                        'arrival_time': stu.arrival.time if stu.HasField('arrival') else None,
+                        'departure_delay': stu.departure.delay if stu.HasField('departure') else None,
+                        'departure_time': stu.departure.time if stu.HasField('departure') else None,
+                        'schedule_relationship': stu.schedule_relationship,
+                        'trip_update_ts': entity.trip_update.timestamp,
+                        'fetch_ts': fetch_ts,
+                    })
         return flattened_data
 
 

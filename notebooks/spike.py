@@ -16,6 +16,7 @@ def _(mo):
 
 @app.cell
 def _():
+
     import marimo as mo
     import polars as pl
     import duckdb
@@ -414,8 +415,6 @@ def _(conn, mo, vehicle_positions):
         FROM ranked_vps
         WHERE ranked > 1
         ORDER BY ranked DESC
-
-
         """,
         engine=conn
     )
@@ -471,11 +470,88 @@ def _(conn, mo, trips, vehicle_positions):
         LEFT JOIN trips 
         	ON rt_trips.trip_id = trips.trip_id
 
-    
+
             	;
         """,
         engine=conn
     )
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Trip Updates
+    """)
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _(conn, mo, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        SELECT COUNT(*) 
+        FROM vehicle_positions
+        -- WHERE to_timestamp(fetch_ts::BIGINT)::DATE = CURRENT_DATE;
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell
+def _(pl):
+    from google.transit import gtfs_realtime_pb2 as pb2
+    from datetime import datetime   
+
+    import os
+    import time
+    from pathlib import Path
+    from urllib import request
+
+    from src.parse import GTFSEntity
+
+    url = "https://gtfsrt.api.translink.com.au/api/realtime/SEQ/" 
+    data_group = "TripUpdates"
+
+    now = datetime.now()
+    dir_path = Path(f"DATA/gtfs/{data_group}") / now.strftime("%Y%m%d")
+    dir_path.mkdir(parents=True, exist_ok=True)
+
+    # download, parse using GTFSEntity and save to parquet file
+    file_path = dir_path / f"{data_group}_{now.strftime('%H%M%S')}.parquet"
+
+    content = GTFSEntity().read_from_url(url + data_group)
+    flattened_content = GTFSEntity().flatten(content, fetch_ts=int(now.timestamp()))
+
+    #write to parquet file
+    df = pl.DataFrame(flattened_content)
+    df.write_parquet(file=file_path)
+
+    # request.urlretrieve(url, file_path)
+    print(f"Saved: {file_path}")
+    return
+
+
+@app.cell
+def _(pl):
+    tru_df = pl.read_parquet("DATA/gtfs/TripUpdates/20261102/TripUpdates_131301.parquet")
+    return (tru_df,)
+
+
+@app.cell
+def _(tru_df):
+    tru_df
     return
 
 
