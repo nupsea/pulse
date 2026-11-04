@@ -310,6 +310,25 @@ def _(conn, mo, route_types, routes, trips, vehicle_positions):
     return
 
 
+@app.cell
+def _(conn, mo, trips, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        WITH polls AS (
+            SELECT fetch_ts, COUNT(trips.trip_id) as trips_per_poll
+            FROM vehicle_positions
+            LEFT JOIN trips
+            ON vehicle_positions.trip_id = trips.trip_id
+            GROUP BY fetch_ts 
+        )
+        SELECT AVG(trips_per_poll)
+        FROM polls
+        """,
+        engine=conn
+    )
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -358,6 +377,22 @@ def _(conn, mo, vehicle_positions):
         SELECT fetch_ts, COUNT(DISTINCT vehicle_ts) as cnt 
         FROM vehicle_positions
         GROUP BY fetch_ts
+        """,
+        engine=conn
+    )
+    return
+
+
+@app.cell
+def _(conn, mo, vehicle_positions):
+    _df = mo.sql(
+        f"""
+        SELECT AVG(cnt)
+        FROM (
+            SELECT fetch_ts, COUNT(DISTINCT vehicle_ts) as cnt 
+        	FROM vehicle_positions
+            GROUP BY fetch_ts
+        )
         """,
         engine=conn
     )
